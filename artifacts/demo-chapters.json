@@ -1,0 +1,59 @@
+{
+  "recordedAt": "2026-10-25T15:08:58.619Z",
+  "captions": "Added presentation captions over the real local application; application actions and downloads are real.",
+  "segments": [
+    {
+      "seconds": 0.07,
+      "title": "LoopDesk \u00c2\u00b7 Recycling Outreach CRM",
+      "body": "Independent portfolio prototype. All data is fictional. This local demo follows one enquiry from contact to report."
+    },
+    {
+      "seconds": 6.19,
+      "title": "01 / Start with a clear overview",
+      "body": "Each browser gets an isolated 24-hour workspace. Open opportunities, recorded estimates and due follow-ups stay together."
+    },
+    {
+      "seconds": 13.35,
+      "title": "02 / Keep organisations and people connected",
+      "body": "Search the contact book, edit details and archive records while retaining linked opportunity history."
+    },
+    {
+      "seconds": 19.42,
+      "title": "The right person, with the right organisation",
+      "body": "Fictional contacts use example-domain email addresses. The prototype never sends email."
+    },
+    {
+      "seconds": 24.59,
+      "title": "03 / Turn an enquiry into an opportunity",
+      "body": "Link the organisation and contact. Add a service, owner, stage, optional AED estimate and a clear next action."
+    },
+    {
+      "seconds": 31.82,
+      "title": "04 / Keep the next conversation on the calendar",
+      "body": "Dated follow-ups appear in due-today and overdue views. Activity notes retain the context."
+    },
+    {
+      "seconds": 38.95,
+      "title": "05 / Move forward with a visible history",
+      "body": "The change from Qualified to Proposal is recorded transactionally. Stale edits are rejected with a reload message."
+    },
+    {
+      "seconds": 45.2,
+      "title": "06 / Export exactly the current view",
+      "body": "Search and filters apply to both the board and CSV. Spreadsheet formula prefixes are neutralised during export."
+    },
+    {
+      "seconds": 51.23,
+      "title": "07 / Finish with a report you can explain",
+      "body": "Open counts exclude Won and Lost. Overdue uses Dubai dates. Won amounts are recorded estimates, not recognised revenue."
+    },
+    {
+      "seconds": 59.24,
+      "title": "Local demonstration \u00c2\u00b7 Source and tests included",
+      "body": "Verified with automated and browser checks. PostgreSQL hosting and a public deployment remain pending; no company adoption is claimed."
+    }
+  ],
+  "captureWallSeconds": 65.99,
+  "mediaDurationEvidence": "video-verification.json",
+  "mediaDurationSeconds": 71.12
+}
