@@ -1,4 +1,4 @@
-{% extends 'base.html' %}{% block title %}{{ 'Edit' if rid else 'New' }} {{ kind }} · LoopDesk{% endblock %}{% block content %}
+{% extends 'base.html' %}{% block title %}{{ 'Edit' if rid else 'New' }} {{ kind }}{{ ' · ' ~ (data.title if kind == 'opportunity' else data.name) if rid else '' }} · LoopDesk{% endblock %}{% block content %}
 {% set back = url_for('opportunity_detail',rid=rid) if kind == 'opportunity' and rid else url_for({'organisation':'organisations','contact':'contacts','opportunity':'opportunities'}[kind]) %}
 <a class="back-link" href="{{ back }}">← Back to {{ kind if kind == 'opportunity' and rid else {'organisation':'organisations','contact':'contacts','opportunity':'pipeline'}[kind] }}</a>
 <div class="page-heading"><div><p class="eyebrow">KEEP THE DETAILS TOGETHER</p><h1>{{ 'Edit' if rid else 'New' }} {{ kind }}</h1><p class="muted">Use fictional information. Required fields are marked with an asterisk (*).</p></div></div>

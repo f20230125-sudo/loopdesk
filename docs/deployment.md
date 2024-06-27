@@ -1,45 +1,51 @@
-# Deployment runbook — projects linked, database provisioning pending
+# Deployment runbook
 
-Updated 26 October 2026. No application deployment exists. A new **loopdesk** project (`prj_PBu1fIAONvCoQBLbLptQDntykAUp`) is created and linked in the user's existing Vercel scope `uzair-ba1c` (`team_9J7RIvaVArU0PAVj1U73qHwE`). ScopeDesk and FollowDesk have separate new projects. No existing project was repurposed.
+Hosted since 27 October 2026 at <https://loopdesk-sigma.vercel.app>.
 
-The user subsequently granted full permission to finish and publish the app/source, and requested that new files, downloads, caches and artifacts be saved on D:. That authorisation is recorded and must not be requested again. Vercel's one-time team-access consent and a database connection remain external prerequisites; chat permission does not grant provider OAuth access. Application submission remains manual.
+## Where it runs
 
-## Observed preflight
+- **Application:** a Vercel project on the free Hobby plan (Python/Flask runtime; `app.py` exports `app`, `pyproject.toml` declares the entrypoint and the dependencies Vercel installs, `vercel.json` sets a 30-second maximum duration).
+- **Database:** a Neon PostgreSQL database on Neon's free plan, added through the Vercel Marketplace. Each of the three apps has its own database; nothing is shared and no database from another project is reused. The app connects through Neon's pooled endpoint (prepared statements are disabled for it); migrations use the direct, unpooled endpoint.
+- **Static assets:** `public/assets/` is served by Vercel's CDN at the same `/assets/` URLs as locally.
 
-- Connected Vercel project listing succeeds.
-- Team access was granted and the three new Flask project identities were read back and linked locally. The verified LoopDesk production hostname is `loopdesk-sigma.vercel.app`. No application is serving there yet.
-- Production `APP_ENV`, exact trusted hostnames and links between the apps are configured. Database/session/vault credentials have not been installed in Vercel; no database was provisioned, and no credentials were pulled.
-- The local shell cannot access PyPI. Cached wheels supplied the tested local environment.
-- No local Vercel CLI, PostgreSQL server or container runtime was available. PostgreSQL CI now passes on a real service container; hosted behaviour remains untested. Neon is not connected; its connection would supply a direct provisioning route.
-- The GitHub connector can update repository files/branches but has no repository-creation action. `f20230125-sudo/loopdesk` returned 404. The GitHub CLI is not installed and shell outbound networking is restricted. A new repository has not been created or substituted with another project.
+Nothing here needs a paid plan. If a free limit blocks a step, stop and change the design instead of upgrading.
 
-## Deployment contents to review
+## Environment
 
-The public source package contains Flask/Jinja source, static assets, migrations, pinned Python dependencies, tests, scripts, synthetic screenshots/CSV, public company research links and documentation. It excludes `private/`, `instance/`, secrets, `.env` files, `.vercel/`, the virtual environment, local cache and private application documents. The application bundle also excludes browser QA scripts and artifacts through `.vercelignore`.
+| Name | Purpose |
+| --- | --- |
+| `APP_ENV=production` | Turns on the production guards below. |
+| `DATABASE_URL` | PostgreSQL connection string with TLS. SQLite is refused in production. |
+| `SECRET_KEY` | Random session secret, at least 32 characters. Stored as a write-only (sensitive) variable. |
+| `LOOPDESK_TRUSTED_HOSTS` | Exact host names the app answers to. Requests for any other host are rejected. |
+| `LOOPDESK_FOLLOWDESK_URL` | HTTPS origin of FollowDesk, used for the "Open FollowDesk" link. Without it the link is omitted; production has no localhost default. |
 
-`app.py` exports `app`. `pyproject.toml` declares the Vercel entrypoint and Python minimum. Assets live at `public/assets/`, with identical `/assets/` URLs locally and on the CDN. `vercel.json` sets a 30-second maximum duration. No build-time or import-time migration runs against a database.
+Credentials live in the provider's settings, never in source, chat or logs. Production and preview must use separate databases and secrets.
 
-The official [Vercel Flask guide](https://vercel.com/docs/frameworks/backend/flask), checked 24 October 2026, documents the Flask entrypoint and public asset directory. Recheck the platform settings when publishing.
+## Release procedure, in order
 
-## Required steps, in order
+1. Run the test suites (`python scripts/manage.py test`; the PostgreSQL job runs in GitHub Actions) and the local browser journey.
+2. Apply migrations to the production database **before** deploying code that needs them: `python -m flask --app app migrate` with `DATABASE_URL` set to the unpooled Neon URL. Migrations never run at import or during a build. They are forward-only and additive, so the previous deployment keeps working while the new schema is in place. `/health` returns `migration_required` (HTTP 503) until the latest migration is present.
+3. Build the allowlisted runtime payload with `scripts/prepare-deployment.py` (or, for all three apps at once, `../followdesk/scripts/prepare-suite.py`). It contains only runtime code, assets, migrations and dependency configuration, with a checksum manifest, and excludes tests, screenshots, databases, credentials and private material. Deploy it to the production project through Vercel's deployments API.
+4. Verify the hosted app: `python scripts/live-smoke.py` (health, security headers, cookie flags, every main page, 404 page), then the browser journey with `LOOPDESK_URL=https://loopdesk-sigma.vercel.app node scripts/browser-check.mjs`. Record the results in [verification](verification.md).
 
-1. Project creation/linking is complete. Verify the recorded IDs before changing any resource. Publication is already authorised.
-2. Provision a new persistent PostgreSQL database, preferably through the Vercel Marketplace Neon integration. Confirm the plan and any price before incurring a charge. Do not reuse a database from another portfolio project.
-3. Add a random `SECRET_KEY` (at least 32 characters), a TLS-enabled `DATABASE_URL`, and `APP_ENV=production` to the intended environments. Store credentials in provider settings, not source or chat. Pull environment variables locally through an authenticated CLI if available, without printing values.
-4. Apply migrations once through the CLI against that database, before serving traffic: `python -m flask --app app migrate`. Do not add migrations to the build command. Preview and production must have separate databases and secrets.
-5. Run `scripts/manage.py test-postgres` with a dedicated `LOOPDESK_TEST_DATABASE_URL`. Business fixtures now use isolated unique schemas per test. Verify composite constraints, transactional rollback, expiry cascades and stale-write row counts on PostgreSQL. Existing SQLite success does not establish PostgreSQL success.
-6. Regenerate the three reviewed runtime payloads with `../followdesk/scripts/prepare-suite.py` after any source change. Each app receives `.local/deployment/runtime-payload.json` and a checksum manifest bound to its verified project ID. They exclude credentials, databases and private application documents. Set the intended environment explicitly before using a deployment tool. The user's publication approval is already recorded.
-7. Deploy to the approved environment. Smoke-test `/health`, the public overview, fresh demo creation, the complete enquiry journey, cross-browser isolation and CSV download without an existing login. Confirm HTTPS, Secure cookies, caching headers and restart persistence. Save separate hosted evidence and record the exact deployment URL.
-8. Update the CV/project summary with an actual tested link only after the deployment passes. Never replace a local result with a claimed hosted result.
+A weekly GitHub Actions workflow (`live-smoke.yml`) runs the smoke check against the hosted app.
 
-## Release decision
+## Defects that only showed up when hosted
 
-Current release status: **publication authorised; local application verified; Vercel projects linked; cloud release pending PostgreSQL provisioning, protected runtime secrets and deployment verification**. GitHub repositories now exist; source publication and CI are tracked separately. The source, recording and offline Windows package remain available on D:. The user alone submits the university application and retains its acknowledgement.
+Found and fixed on the first deployment, because CI cannot exercise the production-only code path:
 
-## D: storage policy
+- Vercel installs from `pyproject.toml`, not `requirements.txt`, so the dependency list is duplicated in `pyproject.toml` (keep both in step).
+- A function-local import that only ran in the non-production branch broke one production route in a sibling app. Production-only branches are not covered by the local suite, so every deployment is followed by the hosted journey.
 
-`scripts/manage.py` sets TEMP, TMP, TMPDIR, pip/npm cache, XDG cache and Python bytecode-cache locations under the project's `.local/` folder. Browser checks and recordings inherit these settings. `Start-LoopDesk.cmd` installs from the included wheel cache when present and delegates to the same launcher. No system environment variables or Windows storage locations are changed globally.
+## Production configuration guards
 
-## Security review deployment gate
+Production refuses SQLite, an absent or short secret and missing trusted hosts; it enables Secure, HttpOnly, SameSite=Lax session cookies and HSTS. Request limits are keyed on the visitor's address. Behind Vercel that is the `X-Vercel-Forwarded-For` header, which the platform sets to the client's public address and overwrites if a client supplies one ([Vercel request headers](https://vercel.com/docs/headers/request-headers)); everywhere else forwarding headers are ignored, because anyone could spoof them. Before this was added every visitor could have shared the proxy's address and therefore one demo budget (20 demos an hour). Check provider edge protection before tuning the limits.
 
-Apply all pending migrations, including database-backed request buckets and workspace revocation. Set explicit trusted hostnames using the application-specific `*_TRUSTED_HOSTS` variable, a real random secret and PostgreSQL. Cookie security is enforced after configuration overrides. Verify provider edge protection and connecting-client identity before tuning limits; arbitrary forwarding headers are deliberately ignored. Run the PostgreSQL suite, deployed HTTPS/session/host/origin tests and normal handoff journey before publishing. See `../../security-review/README.md` for the local audit and remaining checks. All three projects are to be deployed together later, following completion of the third project.
+## Free-tier behaviour
+
+Neon suspends an idle database, so the first request after a quiet period can take a second or two longer. Neon's free allowance is 1 GB and 100 compute-hours per project, which is ample for demonstration traffic. The demo has a 250 active-workspace capacity guard, and expired workspaces are removed opportunistically when a new one is created.
+
+## Local storage
+
+`scripts/manage.py` keeps TEMP, TMP, TMPDIR, pip/npm cache, XDG cache and Python bytecode cache under the project's `.local/` folder; no system environment variable or storage location is changed.
