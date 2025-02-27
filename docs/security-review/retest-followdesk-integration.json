@@ -1,0 +1,172 @@
+{
+  "label": "retest-followdesk-integration",
+  "utc": "2026-10-26T16:17:31Z",
+  "scope": "Owned local Flask apps + SQLite scratch databases; no external targets",
+  "probes": [
+    {
+      "name": "ScopeDesk rejects foreign Host",
+      "actual": 400,
+      "expected": 400,
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "ScopeDesk rejects cross-origin POST even with a valid token",
+      "actual": 403,
+      "expected": 403,
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "ScopeDesk huge optimistic version is rejected without 500",
+      "actual": 409,
+      "expected": 409,
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "ScopeDesk huge query revision is rejected without 500",
+      "actual": 422,
+      "expected": 422,
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "ScopeDesk huge path revision is rejected without 500",
+      "actual": 422,
+      "expected": 422,
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "ScopeDesk rejects amplified repeated source-reference arrays",
+      "actual": true,
+      "expected": true,
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "ScopeDesk caps pending inventory previews",
+      "actual": true,
+      "expected": true,
+      "passed": true,
+      "details": {
+        "attempts": 12,
+        "statuses": [
+          303,
+          303,
+          303,
+          303,
+          303,
+          303,
+          303,
+          303,
+          303,
+          303,
+          429,
+          429
+        ]
+      }
+    },
+    {
+      "name": "ScopeDesk reset revokes a replayed old workspace cookie",
+      "actual": 303,
+      "expected": 303,
+      "passed": true,
+      "details": {
+        "reset_status": 303
+      }
+    },
+    {
+      "name": "ScopeDesk throttles rapid workspace resets",
+      "actual": true,
+      "expected": true,
+      "passed": true,
+      "details": {
+        "attempts": 8,
+        "statuses": [
+          303,
+          303,
+          303,
+          303,
+          429,
+          429,
+          429,
+          429
+        ]
+      }
+    },
+    {
+      "name": "ScopeDesk production factory always enables Secure cookies",
+      "actual": true,
+      "expected": true,
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "LoopDesk rejects foreign Host",
+      "actual": 400,
+      "expected": 400,
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "LoopDesk rejects cross-origin POST even with a valid token",
+      "actual": 403,
+      "expected": 403,
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "LoopDesk huge optimistic version is rejected without 500",
+      "actual": 409,
+      "expected": 409,
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "LoopDesk reset revokes a replayed old workspace cookie",
+      "actual": 303,
+      "expected": 303,
+      "passed": true,
+      "details": {
+        "reset_status": 303
+      }
+    },
+    {
+      "name": "LoopDesk throttles rapid workspace resets",
+      "actual": true,
+      "expected": true,
+      "passed": true,
+      "details": {
+        "attempts": 8,
+        "statuses": [
+          303,
+          303,
+          303,
+          303,
+          429,
+          429,
+          429,
+          429
+        ]
+      }
+    },
+    {
+      "name": "LoopDesk production factory always enables Secure cookies",
+      "actual": true,
+      "expected": true,
+      "passed": true,
+      "details": null
+    },
+    {
+      "name": "ScopeDesk rejects the documented placeholder production secret",
+      "actual": true,
+      "expected": true,
+      "passed": true,
+      "details": null
+    }
+  ],
+  "passed": 17,
+  "failed": 0
+}

@@ -1,0 +1,14 @@
+.venv
+.local
+instance
+private
+tests
+scripts
+artifacts
+__pycache__
+.pytest_cache
+.git
+*.zip
+.env*
+.vercel
+*.bundle
