@@ -74,6 +74,9 @@ def create_app(config=None):
 
     @app.before_request
     def protect_request():
+        if request.endpoint == "csv_import.upload":
+            # Keep the smaller global request bound for all existing routes.
+            request.max_content_length = 256 * 1024 + 16 * 1024
         if isinstance(request.routing_exception,SecurityError):
             return Response("Untrusted request host.\n",status=400,content_type="text/plain")
         if request.blueprint == "outreach_api":
@@ -128,7 +131,7 @@ def create_app(config=None):
     @app.get("/health")
     def health():
         db = get_db()
-        row = db.one("SELECT version FROM schema_migrations WHERE version=?", ("005_followdesk",))
+        row = db.one("SELECT version FROM schema_migrations WHERE version=?", ("006_csv_import",))
         return ({"status": "ok" if row else "migration_required"}, 200 if row else 503)
 
     @app.get("/")
@@ -287,6 +290,8 @@ def create_app(config=None):
 
     from .scope_import import bp as scope_bp
     app.register_blueprint(scope_bp)
+    from .csv_import import bp as csv_bp
+    app.register_blueprint(csv_bp)
     from .outreach import api as outreach_api, ui as outreach_ui
     app.register_blueprint(outreach_api)
     app.register_blueprint(outreach_ui)

@@ -14,6 +14,8 @@ STAGES = ("New", "Contacted", "Qualified", "Proposal", "Won", "Lost")
 SERVICES = ("Battery recycling", "E-waste", "IT asset disposition")
 OWNERS = ("Maya (demo)", "Omar (demo)", "Leena (demo)")
 TABLES = {"organisations", "contacts", "opportunities", "tasks"}
+STALE_DAYS = 14
+HEALTH_WINDOW_DAYS = 30
 
 
 class ValidationError(ValueError):
@@ -206,7 +208,7 @@ def complete_task(db, wid, rid, version):
     with db.transaction():
         row = record(db, "tasks", wid, rid)
         checked_update(db, "tasks", wid, rid, version, {"completed": 1 - row["completed"]})
-        audit(db, wid, "opportunity", row["opportunity_id"], f"Follow-up {'reopened' if row['completed'] else 'completed'}: {row['title']}", row["opportunity_id"], "task")
+        audit(db, wid, "task", rid, f"Follow-up {'reopened' if row['completed'] else 'completed'}: {row['title']}", row["opportunity_id"], "task_reopened" if row["completed"] else "task_completed")
 
 
 def opportunity_list(db, wid, filters):
@@ -257,7 +259,76 @@ def report(db, wid, now=None):
                 won_unknown=sum(r["value_minor"] is None for r in won),
                 open_known=sum(r["value_minor"] for r in open_rows if r["value_minor"] is not None),
                 open_unknown=sum(r["value_minor"] is None for r in open_rows),
-                date=today)
+                date=today, health=pipeline_health(db, wid, open_rows, tasks, now))
+
+
+def parsed_time(raw):
+    try:
+        value = datetime.fromisoformat(raw)
+        return value.astimezone(timezone.utc) if value.tzinfo else None
+    except (TypeError, ValueError):
+        return None
+
+
+def pipeline_health(db, wid, open_rows, tasks, now=None):
+    now = now or utcnow()
+    today = dubai_today(now)
+    start_date = today - timedelta(days=HEALTH_WINDOW_DAYS - 1)
+    start = datetime.combine(start_date, datetime.min.time(), ZoneInfo("Asia/Dubai"))
+    events = db.all("SELECT * FROM stage_events WHERE workspace_id=?", (wid,))
+    activities = db.all("SELECT * FROM activities WHERE workspace_id=?", (wid,))
+    events_by_opportunity, activity_by_opportunity = {}, {}
+    changes = {stage: 0 for stage in STAGES}
+    changes_unknown = 0
+    for event in events:
+        events_by_opportunity.setdefault(event["opportunity_id"], []).append(event)
+        if event["from_stage"] is not None:
+            at = parsed_time(event["created_at"])
+            if at is None or at > now:
+                changes_unknown += 1
+            elif start <= at <= now:
+                changes[event["to_stage"]] += 1
+    completed, completions_unknown = set(), 0
+    for activity in activities:
+        activity_by_opportunity.setdefault(activity["opportunity_id"], []).append(activity)
+        at = parsed_time(activity["created_at"])
+        if activity["kind"] == "task_completed":
+            if at is None or at > now:
+                completions_unknown += 1
+            elif start <= at <= now:
+                completed.add(activity["entity_id"])
+        elif activity["kind"] == "task" and activity["body"].startswith("Follow-up completed:"):
+            if at is None or at > now or at >= start:
+                # Legacy completion text has no task ID: it cannot be deduplicated reliably.
+                completions_unknown += 1
+    stale, stale_unknown = [], 0
+    ages = {stage: [] for stage in STAGES[:4]}
+    stage_unknown = {stage: 0 for stage in STAGES[:4]}
+    for row in open_rows:
+        history = events_by_opportunity.get(row["id"], [])
+        stage_times = [parsed_time(e["created_at"]) for e in history] if history else [parsed_time(row["created_at"])]
+        if any(at is None or at > now for at in stage_times):
+            stage_unknown[row["stage"]] += 1
+        else:
+            ages[row["stage"]].append((now - max(stage_times)).total_seconds() / 86400)
+        times = [parsed_time(row["created_at"])] + stage_times
+        times += [parsed_time(a["created_at"]) for a in activity_by_opportunity.get(row["id"], [])]
+        if any(at is None or at > now for at in times):
+            stale_unknown += 1
+        else:
+            last = max(times)
+            days = (now - last).total_seconds() / 86400
+            if days >= STALE_DAYS:
+                stale.append(dict(id=row["id"], title=row["title"], days=int(days), last=last.isoformat()))
+    stale.sort(key=lambda row: (row["last"], row["title"], row["id"]))
+    average = {stage: round(sum(values) / len(values), 1) if values and not stage_unknown[stage] else None for stage, values in ages.items()}
+    return dict(stale=stale[:10], stale_count=len(stale), stale_unknown=stale_unknown, stale_days=STALE_DAYS,
+                average_stage_days=average, stage_unknown=stage_unknown, changes=changes, changes_unknown=changes_unknown,
+                completed=len(completed), completions_unknown=completions_unknown,
+                due=sum(start_date.isoformat() <= task["due_date"] <= today.isoformat() for task in tasks),
+                window_days=HEALTH_WINDOW_DAYS, window_start=start_date.isoformat(),
+                max_stage_days=max([value for value in average.values() if value is not None] + [1]),
+                max_changes=max([*changes.values(), 1]))
 
 
 def csv_export(rows):

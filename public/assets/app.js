@@ -17,3 +17,20 @@ if (organisation && contact) {
   organisation.addEventListener('change', syncContacts);
   syncContacts();
 }
+
+const pairCode = document.querySelector('#pair-code');
+const copyCode = document.querySelector('#copy-pair-code');
+const copyStatus = document.querySelector('#copy-code-status');
+if (pairCode && copyCode && copyStatus) {
+  copyCode.hidden = false;
+  copyCode.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(pairCode.value);
+      copyStatus.textContent = 'Code copied. Paste it into the FollowDesk tab.';
+    } catch {
+      pairCode.focus();
+      pairCode.select();
+      copyStatus.textContent = 'Code selected. Copy it with your keyboard or device menu.';
+    }
+  });
+}
