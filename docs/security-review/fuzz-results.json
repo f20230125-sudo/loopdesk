@@ -1,0 +1,14 @@
+{
+  "verifiedAt": "2026-10-26T11:21:17.926482+00:00",
+  "stateMutations": 629,
+  "stateHttpStatuses": {
+    "422": 564,
+    "303": 65
+  },
+  "handoffMutations": 374,
+  "validHandoffMutationsAccepted": 28,
+  "parserBombs": 6,
+  "unexpectedFailures": [],
+  "seconds": 1.509,
+  "rateLimitNote": "Rate limiter explicitly disabled only in this isolated parser corpus; limits tested separately."
+}
