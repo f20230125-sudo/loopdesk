@@ -1,0 +1,71 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import {createRequire} from 'node:module';
+const require=createRequire(process.env.LOOPDESK_BROWSER_PACKAGE||import.meta.url);
+const {chromium}=require('playwright');
+const base=process.env.LOOPDESK_URL||'http://127.0.0.1:5055';
+await fs.mkdir('artifacts/recording-raw',{recursive:true});
+const browser=await chromium.launch({headless:true});
+const context=await browser.newContext({viewport:{width:1440,height:960},recordVideo:{dir:'artifacts/recording-raw',size:{width:1440,height:960}}});
+const p=await context.newPage();
+const segments=[];
+const start=Date.now();
+async function chapter(title,body,seconds){
+  segments.push({seconds:Number(((Date.now()-start)/1000).toFixed(2)),title,body});
+  await p.evaluate(({title,body})=>{
+    document.querySelector('#demo-caption')?.remove();
+    const box=document.createElement('div'); box.id='demo-caption';
+    box.style.cssText='position:fixed;bottom:16px;left:250px;right:28px;background:#183f32f5;color:white;padding:17px 24px;border:1px solid #577c65;border-radius:9px;box-shadow:0 6px 24px #0002;z-index:1000;font:14px/1.5 Segoe UI,sans-serif;pointer-events:none';
+    const strong=document.createElement('strong');strong.style.cssText='display:block;font-size:16px;margin-bottom:4px;color:#e4efce';strong.textContent=title;
+    const text=document.createElement('div');text.textContent=body;box.append(strong,text);document.body.append(box);
+  },{title,body});
+  await p.waitForTimeout(seconds*1000);
+}
+try{
+  await p.goto(base);
+  await chapter('LoopDesk · Recycling Outreach CRM','Independent portfolio prototype. All data is fictional. This local demo follows one enquiry from contact to report.',6);
+  await p.getByRole('button',{name:'Try demo'}).click();
+  await chapter('01 / Start with a clear overview','Each browser gets an isolated 24-hour workspace. Open opportunities, recorded estimates and due follow-ups stay together.',7);
+  await p.getByRole('link',{name:'Organisations',exact:true}).click();
+  await p.getByLabel('Search organisations',{exact:true}).fill('Cedar');
+  await p.getByRole('button',{name:'Apply filters',exact:true}).click();
+  await chapter('02 / Keep organisations and people connected','Search the contact book, edit details and archive records while retaining linked opportunity history.',6);
+  await p.getByRole('link',{name:'Contacts',exact:true}).last().click();
+  await chapter('The right person, with the right organisation','Fictional contacts use example-domain email addresses. The prototype never sends email.',5);
+  await p.getByRole('link',{name:'Pipeline',exact:true}).click();
+  await p.getByRole('link',{name:'+ New opportunity'}).click();
+  await p.getByLabel('Opportunity title *',{exact:true}).fill('Battery collection · Cedar Circuit');
+  await p.getByLabel('Organisation *',{exact:true}).selectOption({label:'Cedar Circuit'});
+  await p.getByLabel('Contact *',{exact:true}).selectOption({label:'Alex Example 01'});
+  await p.getByLabel('Service category *',{exact:true}).selectOption('Battery recycling');
+  await p.getByLabel('Stage *',{exact:true}).selectOption('Qualified');
+  await p.getByLabel('Estimated value (AED)',{exact:true}).fill('1250.55');
+  await p.getByLabel('Next action *',{exact:true}).fill('Confirm collection scope and prepare a proposal');
+  await chapter('03 / Turn an enquiry into an opportunity','Link the organisation and contact. Add a service, owner, stage, optional AED estimate and a clear next action.',7);
+  await p.getByRole('button',{name:'Save opportunity'}).click();
+  await p.getByLabel('Follow-up title *',{exact:true}).fill('Call Alex about the collection scope');
+  await p.getByRole('button',{name:'Add follow-up',exact:true}).click();
+  await p.getByLabel('Activity note *',{exact:true}).fill('Spoke with Alex. Collection scope confirmed; proposal requested.');
+  await p.getByRole('button',{name:'Record activity'}).click();
+  await chapter('04 / Keep the next conversation on the calendar','Dated follow-ups appear in due-today and overdue views. Activity notes retain the context.',7);
+  await p.getByRole('link',{name:'Edit opportunity',exact:true}).click();
+  await p.getByLabel('Stage *',{exact:true}).selectOption('Proposal');
+  await p.getByRole('button',{name:'Save opportunity'}).click();
+  await chapter('05 / Move forward with a visible history','The change from Qualified to Proposal is recorded transactionally. Stale edits are rejected with a reload message.',6);
+  await p.getByRole('link',{name:'Pipeline',exact:true}).click();
+  await p.getByLabel('Search opportunities',{exact:true}).fill('Battery collection · Cedar');
+  await p.getByLabel('Stage',{exact:true}).selectOption('Proposal');
+  await p.getByRole('button',{name:'Apply filters',exact:true}).click();
+  const [download]=await Promise.all([p.waitForEvent('download'),p.getByRole('link',{name:'Export filtered CSV',exact:false}).click()]);
+  await download.saveAs('artifacts/demo-export.csv');
+  await chapter('06 / Export exactly the current view','Search and filters apply to both the board and CSV. Spreadsheet formula prefixes are neutralised during export.',6);
+  await p.getByRole('link',{name:'Reports',exact:true}).click();
+  await chapter('07 / Finish with a report you can explain','Open counts exclude Won and Lost. Overdue uses Dubai dates. Won amounts are recorded estimates, not recognised revenue.',8);
+  await chapter('Local demonstration · Source and tests included','Verified with automated and browser checks. PostgreSQL hosting and a public deployment remain pending; no company adoption is claimed.',6);
+}finally{
+  const video=p.video();
+  await context.close();
+  await video.saveAs(path.resolve('artifacts/LoopDesk-Demo.webm'));
+  await browser.close();
+  await fs.writeFile('artifacts/demo-chapters.json',JSON.stringify({recordedAt:new Date().toISOString(),captureWallSeconds:Number(((Date.now()-start)/1000).toFixed(2)),mediaDurationEvidence:'See video-verification.json for the duration measured from the encoded WebM.',captions:'Added presentation captions over the real local application; application actions and downloads are real.',segments},null,2));
+}
