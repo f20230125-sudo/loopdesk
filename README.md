@@ -1,6 +1,6 @@
 # LoopDesk
 
-Latest local checkpoint, 26 October 2026: **121 automated checks pass** with the additive FollowDesk connection. Migration `005_followdesk` adds one-use pairing, expiring/revocable grants and repeat-safe append-only outreach history. FollowDesk runs separately on port 5059; its simulated inbox sends no email. The real three-app journey and a clean offline installation pass locally. See [connection permissions and setup](docs/followdesk-connection.md) and `../followdesk/docs/checkpoint.md`. PostgreSQL and hosted HTTPS remain unverified. Earlier counts below describe prior checkpoints.
+Latest checkpoint, 26 October 2026: **121 checks pass on SQLite and PostgreSQL in [Linux CI](https://github.com/f20230125-sudo/loopdesk/actions/runs/40375197884)**. Migration `005_followdesk` adds one-use pairing, expiring/revocable grants and repeat-safe append-only outreach history. FollowDesk runs separately on port 5059; its simulated inbox sends no email. The real three-app browser journey and a clean offline installation pass locally. See [connection permissions and setup](docs/followdesk-connection.md). Vercel projects are linked, but Neon provisioning and hosted HTTPS verification remain pending. Earlier counts below describe prior checkpoints.
 
 Security review, 26 October 2026: **101 automated checks pass**. Fixed oversized-integer crashes, production configuration gaps, reset-cookie replay and resource accumulation; added host/origin checks, persistent request limits and atomic quotas. The 40-check attack browser journey and both original browser workflows pass locally. See [security report](docs/security-review/README.md). Production now requires explicit `LOOPDESK_TRUSTED_HOSTS` in addition to PostgreSQL and a random session secret. Reset revokes the previous workspace cookie; retained data awaits expiry cleanup. Earlier release counts below are historical.
 
@@ -94,7 +94,7 @@ The seed creates 30 fictional organisations, 30 contacts, 36 opportunities and 2
 
 51 automated checks cover the SQLite HTTP journey, database restart persistence, relational constraints, stale commands, rollback, cross-workspace read/write denial, expiry cleanup, CSRF, stored HTML escaping, formula-safe export, filtered export reconciliation, empty/unknown values, Dubai midnight boundaries and redacted database-outage responses.
 
-For a dedicated PostgreSQL test database, set `LOOPDESK_TEST_DATABASE_URL` in the process environment and run `.venv/Scripts/python scripts/manage.py test-postgres`. Every business fixture creates and later drops only its own unique `loopdesk_test_…` schema. It does not reset `public` or any existing application schema. The current local run has no PostgreSQL server connection, so this path is prepared rather than verified. `.github/workflows/checks.yml` defines SQLite and PostgreSQL service-container jobs for a future repository; those jobs have not run remotely.
+For a dedicated PostgreSQL test database, set `LOOPDESK_TEST_DATABASE_URL` in the process environment and run `.venv/Scripts/python scripts/manage.py test-postgres`. Every business fixture creates and later drops only its own unique `loopdesk_test_…` schema. It does not reset `public` or any existing application schema. Both SQLite and PostgreSQL service-container CI jobs now pass all 121 checks. See `artifacts/ci-verification.json` for exact tested commits and run evidence. Production Neon connectivity remains a separate check.
 
 Browser verification requires Node.js and Chromium:
 
@@ -110,7 +110,7 @@ Browser dependencies are pinned in `package.json`. The local run reused the work
 
 ## Hosting status and limitations
 
-The application includes a Vercel Flask entrypoint, `vercel.json`, public assets, production configuration guards and a PostgreSQL connection path. **It is not deployed. PostgreSQL execution is unverified.** Vercel project creation was rejected because the current connection lacks team access. There is no provisioned database or project identity to link. See the [deployment runbook](docs/deployment.md) for the remaining steps and release gate.
+The application includes a Vercel Flask entrypoint, `vercel.json`, public assets, production configuration guards and a CI-tested PostgreSQL path. **It is not deployed.** Vercel team access is working and the new project is linked with public configuration. Database provisioning, protected runtime secrets, production migrations and hosted verification remain pending. See the [deployment runbook](docs/deployment.md).
 
 Publication was authorised by the user on 25 October. Account access remains a separate provider requirement. A new Vercel authorization request was issued; Neon provisioning tools are available after the user connects Neon. The prepared `scripts/prepare-deployment.py` emits an allowlisted, checksum-recorded API payload containing only runtime code, assets, migrations and dependency configuration. It sends nothing by itself and excludes the private application package.
 

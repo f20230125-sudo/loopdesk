@@ -1,4 +1,6 @@
-Security follow-up, 26 October 2026: current suite **101 passing checks** (`artifacts/security-pytest.xml`). The earlier figures below document the initial release. The focused 17-probe retest, 1,009 mutation/parser cases and 40-check attack browser journey are recorded in `../../security-review/README.md`. Both original browser journeys pass after the fixes. PostgreSQL and hosted verification remain pending.
+Latest verification, 26 October 2026: **121 checks pass on SQLite and PostgreSQL in Linux CI**. See `artifacts/ci-verification.json` and [the successful run](https://github.com/f20230125-sudo/loopdesk/actions/runs/40375197884). Hosted verification remains pending.
+
+Historical security follow-up: **101 passing checks** (`artifacts/security-pytest.xml`). Earlier figures below document the initial release. The focused 17-probe retest, 1,009 mutation/parser cases and 40-check attack browser journey are recorded in `../../security-review/README.md`. Both original browser journeys pass after the fixes.
 
 # Local verification — 25 October 2026
 
@@ -26,10 +28,10 @@ Story: a visitor starts a fictional workspace, creates an organisation and conta
 
 ## Limits
 
-SQLite, Flask test clients and local Chromium were exercised. No hosted deployment or PostgreSQL runtime has been verified. No external system, email delivery, staff sign-in, real-user load, manual assistive-technology review, data backup/restore or production incident handling was tested. Layout captures establish the tested viewports, not every possible device.
+SQLite, PostgreSQL service-container CI, Flask test clients and local Chromium were exercised. No Vercel deployment or production Neon database has been verified. No real email delivery, staff sign-in, real-user load, manual assistive-technology review, backup/restore or production incident handling was tested. Layout captures establish the tested viewports, not every possible device.
 
-The full business suite now supports isolated PostgreSQL schemas, and a GitHub Actions workflow defines a PostgreSQL service-container job. Both remain unexecuted until an actual database or repository is available. The runtime PostgreSQL driver uses a bounded connection timeout, statement timeout and disables prepared statements for compatibility with transaction-pooling endpoints.
+The full business suite passes against isolated PostgreSQL schemas in GitHub Actions. The runtime driver uses bounded connection/statement timeouts and disables prepared statements for transaction-pooling compatibility. Neon-specific networking, TLS, pooling and production migrations remain separate checks.
 
-Timeout and test-schema settings are applied locally at the start of each transaction, so they do not depend on retaining a server session through a pooler. This follows [PostgreSQL SET LOCAL semantics](https://www.postgresql.org/docs/current/sql-set.html), [psycopg transaction behaviour](https://www.psycopg.org/psycopg3/docs/basic/transactions.html) and [Neon pooling guidance](https://neon.com/docs/connect/connection-pooling). Documentation review is not a substitute for the pending PostgreSQL execution check.
+Timeout and test-schema settings are applied at the start of each transaction, so they do not depend on retaining a server session through a pooler. This follows [PostgreSQL SET LOCAL semantics](https://www.postgresql.org/docs/current/sql-set.html), [psycopg transaction behaviour](https://www.psycopg.org/psycopg3/docs/basic/transactions.html) and [Neon pooling guidance](https://neon.com/docs/connect/connection-pooling). The passing PostgreSQL CI service is distinct from the pending production Neon check.
 
 The browser run found and fixed ambiguous dropdown label names and mobile overflow caused by hidden text outside its scroll container. The complete journey subsequently passed. These findings do not imply real-world company use or a measured business improvement.

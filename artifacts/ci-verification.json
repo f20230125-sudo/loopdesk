@@ -1,0 +1,35 @@
+{
+  "verifiedAt": "2026-10-26 18:20:46 UTC",
+  "hostedApplicationVerified": false,
+  "postgresServiceTestsVerified": true,
+  "linuxDependencyInstallationVerified": true,
+  "applications": [
+    {
+      "application": "loopdesk",
+      "repository": "https://github.com/f20230125-sudo/loopdesk",
+      "sourceCommit": "9745305a2d193eeb7a06bf860f4e9b96e612d34e",
+      "sourceTree": "66fb4c02b344fb3d32004afd07a4ace5eed6360b",
+      "workflowRunId": 40375197884,
+      "workflowUrl": "https://github.com/f20230125-sudo/loopdesk/actions/runs/40375197884",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "sqlite",
+          "conclusion": "success",
+          "id": 121756240754,
+          "summaries": [
+            "121 passed in 5.71s"
+          ]
+        },
+        {
+          "name": "postgres",
+          "conclusion": "success",
+          "id": 121756241208,
+          "summaries": [
+            "121 passed in 14.54s"
+          ]
+        }
+      ]
+    }
+  ]
+}

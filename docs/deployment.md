@@ -10,7 +10,7 @@ The user subsequently granted full permission to finish and publish the app/sour
 - Team access was granted and the three new Flask project identities were read back and linked locally. The verified LoopDesk production hostname is `loopdesk-sigma.vercel.app`. No application is serving there yet.
 - Production `APP_ENV`, exact trusted hostnames and links between the apps are configured. Database/session/vault credentials have not been installed in Vercel; no database was provisioned, and no credentials were pulled.
 - The local shell cannot access PyPI. Cached wheels supplied the tested local environment.
-- No local Vercel CLI, PostgreSQL server or container runtime was available. PostgreSQL and hosted behaviour remain untested. Neon was found in the plugin directory but is not connected; its connection would supply a direct provisioning route.
+- No local Vercel CLI, PostgreSQL server or container runtime was available. PostgreSQL CI now passes on a real service container; hosted behaviour remains untested. Neon is not connected; its connection would supply a direct provisioning route.
 - The GitHub connector can update repository files/branches but has no repository-creation action. `f20230125-sudo/loopdesk` returned 404. The GitHub CLI is not installed and shell outbound networking is restricted. A new repository has not been created or substituted with another project.
 
 ## Deployment contents to review
