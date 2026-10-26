@@ -1,0 +1,13 @@
+.venv/
+.local/
+instance/
+__pycache__/
+.pytest_cache/
+.env
+.env.*
+!.env.example
+.vercel/
+private/
+*.pyc
+artifacts/recording-raw/
+artifacts/browser-failure.png
