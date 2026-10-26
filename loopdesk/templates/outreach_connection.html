@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block title %}FollowDesk connection · LoopDesk{% endblock %}
+{% block content %}
+<p class="eyebrow">CONNECTED DEMO</p><h1>FollowDesk connection</h1>
+<p>Create a one-use code and paste it into FollowDesk. Access is limited to reading this demo's opportunity/contact context and appending labelled outreach history. Stage, owner, value, next action and tasks cannot be changed.</p>
+<p>A code expires after five minutes. A connection expires after one hour or when this workspace expires. Connecting a replacement revokes the old connection.</p>
+<form method="post">{{ csrf() }}<button class="button" name="action" value="pair">Create pairing code</button></form>
+{% if code %}<section class="card"><h2>One-use pairing code</h2><label for="pair-code">Copy into FollowDesk's connection screen</label><input id="pair-code" value="{{ code }}" readonly autocomplete="off" style="width:100%"><p>Never put this code in a URL or public screenshot. If exchange fails after the code is consumed, create a fresh code.</p></section>{% endif %}
+<h2>Connection history</h2>{% for grant in grants %}<p>{{ 'Revoked' if grant.revoked else 'Issued — validity checked on each request' }} · Expires {{ grant.expires_at }}</p>{% else %}<p>No connections issued yet.</p>{% endfor %}
+<form method="post">{{ csrf() }}<button class="button secondary" name="action" value="revoke">Revoke all FollowDesk access</button></form>
+{% if followdesk_url %}<p><a href="{{ followdesk_url }}/connection">Open FollowDesk</a></p>{% else %}<p>FollowDesk's address has not been configured for this deployment. The other CRM features remain available.</p>{% endif %}
+{% endblock %}

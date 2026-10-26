@@ -1,0 +1,12 @@
+[project]
+name = "loopdesk"
+version = "1.0.0"
+description = "Independent recycling outreach CRM portfolio prototype"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.vercel]
+entrypoint = "app:app"

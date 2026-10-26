@@ -1,0 +1,12 @@
+{
+  "format": "WebM/VP9",
+  "durationSeconds": 71.12,
+  "dimensions": [
+    1440,
+    960
+  ],
+  "audio": false,
+  "captioned": true,
+  "realLocalBrowserJourney": true,
+  "source": "Local Chromium recording; all fictional data"
+}
