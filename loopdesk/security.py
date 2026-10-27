@@ -68,13 +68,25 @@ def check_origin():
             raise BadRequest("Duplicate form fields are not accepted.")
 
 
+def client_address():
+    """Address the request limits are keyed on.
+
+    Forwarding headers are ignored everywhere except Vercel, where the platform sets X-Vercel-Forwarded-For to the
+    client's public address and overwrites any client-supplied value. Without this every visitor would share the
+    proxy's address and therefore one demo budget."""
+    if os.environ.get("VERCEL"):
+        forwarded = request.headers.get("X-Vercel-Forwarded-For", "").split(",")[0].strip()
+        if re.fullmatch(r"[0-9a-fA-F:.]{3,45}", forwarded):
+            return forwarded
+    return request.remote_addr or "unknown"
+
+
 def enforce_rate_limits(db, workspace=None, demo=False):
     if not current_app.config["SECURITY_RATE_LIMITS"]:
         return
     now = int(time.time())
     key = str(current_app.secret_key).encode()
-    # Deliberately ignore X-Forwarded-For. Trust proxy metadata only after the hosting topology is verified.
-    address = request.remote_addr or "unknown"
+    address = client_address()
     subject = hmac.new(key,address.encode(),hashlib.sha256).hexdigest()
     rules = [("ip-write" if request.method=="POST" else "ip-read",subject,60,120 if request.method=="POST" else 600)]
     if workspace:

@@ -195,7 +195,7 @@ def test_migrations_are_idempotent(db):
     migrate(db)
     assert db.all("SELECT version FROM schema_migrations ORDER BY version") == [
         {"version": "001_initial"}, {"version": "002_scopedesk"}, {"version": "003_security"},
-        {"version": "004_session_revocation"}, {"version": "005_followdesk"}]
+        {"version": "004_session_revocation"}, {"version": "005_followdesk"}, {"version": "006_csv_import"}]
 
 
 def test_filter_export_matches_visible_rows_including_literal_wildcards(db,workspace,client):
