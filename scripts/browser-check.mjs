@@ -11,23 +11,29 @@ await fs.mkdir(root, { recursive: true });
 const browser = await chromium.launch({headless: true});
 const checks = [], scans = [], errors = [], badResponses = [];
 const context = await browser.newContext({ viewport: {width: 1440, height: 1080} });
-const page = await context.newPage();
+let page = await context.newPage();
+let javaScriptDisabled = false;
 page.on('pageerror', e => errors.push(e.message));
 page.on('response', r => { if (r.status() >= 500) badResponses.push({url:r.url(),status:r.status()}); });
 context.setDefaultTimeout(10000);
 function check(name, condition = true) { assert.ok(condition,name); checks.push(name); }
 async function audit(name) {
-  const result = await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();
+  // Axe needs scripting. Render the same server HTML in a separate scripting-enabled tab.
+  const scanContext = javaScriptDisabled ? await browser.newContext({storageState:await page.context().storageState(),viewport:page.viewportSize()}) : null;
+  const scanPage = scanContext ? await scanContext.newPage() : page;
+  if (scanContext) assert.equal((await scanPage.goto(page.url())).status(),200);
+  const result = await new AxeBuilder({page:scanPage}).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();
+  if (scanContext) await scanContext.close();
   const violations = result.violations.map(v => ({id:v.id,impact:v.impact,nodes:v.nodes.map(n=>({target:n.target,summary:n.failureSummary}))}));
-  await fs.writeFile(path.join(root,`${name}-axe.json`),JSON.stringify(violations,null,2));
+  await fs.writeFile(path.join(root,`improvement-2026-10-27-${name}-axe.json`),JSON.stringify(violations,null,2));
   assert.deepEqual(violations,[],`${name} accessibility`);
   scans.push(name);
 }
-async function capture(name,width=1440,height=1080) {
+async function capture(name,width=1440,height=900) {
   await page.setViewportSize({width,height});
   await page.evaluate(()=>document.fonts.ready);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`${name} horizontal overflow`);
-  await page.screenshot({path:path.join(root,`${name}.png`),fullPage:true});
+  await page.screenshot({path:path.join(root,`improvement-2026-10-27-journey-${name}.png`),fullPage:true});
 }
 try {
   await page.goto(base);
@@ -37,7 +43,7 @@ try {
   await page.keyboard.press('Tab');
   check('Keyboard skip link receives focus',await page.getByRole('link',{name:'Skip to content'}).evaluate(el=>el===document.activeElement));
   await page.getByRole('button',{name:'Try demo'}).click();
-  await page.getByRole('heading',{name:'A little clarity goes a long way.'}).waitFor();
+  await page.getByRole('heading',{name:'Overview: 24 open opportunities'}).waitFor();
   check('Fresh isolated demo starts without login');
   await capture('overview-desktop');
   await audit('overview-desktop');
@@ -62,7 +68,7 @@ try {
   await page.getByRole('link',{name:'Alex Example',exact:true}).waitFor();
   check('Contact created with organisation relationship');
   await page.getByRole('link',{name:'Pipeline',exact:true}).click();
-  await page.getByRole('link',{name:'+ New opportunity'}).click();
+  await page.getByRole('link',{name:'+ New opportunity'}).click(); await page.waitForLoadState('load');
   await page.getByLabel('Opportunity title *',{exact:true}).fill('Quarterly battery collection · Acacia');
   await page.getByLabel('Organisation *',{exact:true}).selectOption({label:'Acacia Demo Systems'});
   check('Contact selector filters to chosen organisation',await page.locator('#opportunity-contact option').count()===2);
@@ -107,13 +113,13 @@ try {
   await page.getByRole('button',{name:'Apply filters',exact:true}).click();
   check('Pipeline filters find one matching opportunity',await page.locator('.opportunity-card').count()===1);
   const [download] = await Promise.all([page.waitForEvent('download'),page.getByRole('link',{name:'Export filtered CSV',exact:false}).click()]);
-  await download.saveAs(path.join(root,'filtered-opportunities.csv'));
-  const csv = await fs.readFile(path.join(root,'filtered-opportunities.csv'),'utf8');
+  await download.saveAs(path.join(root,'improvement-filtered-opportunities-2026-10-27.csv'));
+  const csv = await fs.readFile(path.join(root,'improvement-filtered-opportunities-2026-10-27.csv'),'utf8');
   check('Filtered CSV contains matching opportunity and exact estimate',csv.includes('Acacia Demo Systems')&&csv.includes('1250.55')&&csv.trim().split(/\r?\n/).length===2);
   await page.getByRole('link',{name:'List',exact:true}).click();
   check('Board and list share the same filters',await page.locator('tbody tr').count()===1);
   await page.getByRole('link',{name:'Reports',exact:true}).click();
-  await page.getByRole('heading',{name:'From conversations to a clearer picture.',exact:true}).waitFor();
+  await page.getByRole('heading',{name:'Reports: pipeline and follow-ups',exact:true}).waitFor();
   check('Report explains estimates, current stages and Dubai-date rules',(await page.locator('.definitions').innerText()).includes('Asia/Dubai'));
   await capture('reports-desktop');
   await audit('reports-desktop');
@@ -138,17 +144,96 @@ try {
   const forbidden = await other.goto(detail);
   check('Separate browser workspace cannot access another workspace record',forbidden.status()===404);
   await second.close();
-  await page.setViewportSize({width:1440,height:1080});
+  await page.setViewportSize({width:1440,height:900});
   await page.goto(`${base}/opportunities`);
   await capture('pipeline-desktop');
   await audit('pipeline-desktop');
+  for (const width of [1440,1024,390]) {
+    await page.setViewportSize({width,height:width===390?844:900});
+    const board = page.getByRole('region',{name:'Pipeline board. Scroll horizontally to see all stages.'});
+    await board.focus();
+    const overflow = await board.evaluate(el=>el.scrollWidth>el.clientWidth);
+    if (overflow) {
+      await page.keyboard.press('ArrowRight');
+      await page.waitForFunction(()=>document.querySelector('.board-scroll').scrollLeft>0);
+      await page.locator('.board-column').last().getByRole('link').last().focus();
+    }
+    const visible = await page.locator('.board-column').last().evaluate(el=>{
+      const col=el.getBoundingClientRect(), region=el.closest('.board-scroll').getBoundingClientRect();
+      return col.right<=region.right+1 && col.left>=region.left-1;
+    });
+    check(`Lost stage reachable and visible at ${width}px`,visible);
+    await capture(`pipeline-reached-lost-${width}`,width,width===390?844:900);
+  }
+  await page.goto(`${base}/reports`);
+  check('Pipeline health has all four definitions and textual values',await page.getByRole('heading',{name:'Pipeline health',exact:true}).isVisible() && (await page.locator('.definitions').innerText()).includes('14 elapsed days'));
+  await page.goto(`${base}/dashboard`);
+  await page.getByText('Try the 3-minute path',{exact:true}).click();
+  check('Five-step demo card has working deep links',await page.locator('.demo-path li').count()===5 && await page.locator('.demo-path a[href="/opportunities.csv"]').count()===1);
+  await page.goto(`${base}/integrations/followdesk`);
+  await page.getByRole('button',{name:'Create pairing code',exact:true}).click();
+  await page.evaluate(()=>{
+    Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>{window.copiedCodeLength=value.length;}}});
+  });
+  await page.getByRole('button',{name:'Copy code',exact:true}).click();
+  await page.getByText('Code copied. Paste it into the FollowDesk tab.',{exact:true}).waitFor();
+  check('Copy code uses clipboard without adding it to a URL',await page.evaluate(()=>window.copiedCodeLength===document.querySelector('#pair-code').value.length && !location.href.includes(document.querySelector('#pair-code').value)));
+  await page.evaluate(()=>{navigator.clipboard.writeText=async()=>{throw new Error('Fixture clipboard denied');};});
+  await page.getByRole('button',{name:'Copy code',exact:true}).click();
+  await page.getByText('Code selected. Copy it with your keyboard or device menu.',{exact:true}).waitFor();
+  check('Clipboard denial selects the code for manual copy',await page.locator('#pair-code').evaluate(el=>el.selectionStart===0 && el.selectionEnd===el.value.length));
+  const followdesk = page.getByRole('link',{name:'Open FollowDesk (new tab)'});
+  check('FollowDesk link opens a separate tab with noopener',await followdesk.getAttribute('target')==='_blank' && await followdesk.getAttribute('rel')==='noopener');
+  await page.goto(`${base}/integrations/followdesk`);
+  await capture('connection-mobile',390,844);
+  await audit('connection-mobile');
+  const mainPage = page;
+  const noJs = await browser.newContext({javaScriptEnabled:false,storageState:await context.storageState()});
+  noJs.setDefaultTimeout(10000);
+  javaScriptDisabled=true;
+  page = await noJs.newPage();
+  page.on('pageerror',e=>errors.push(e.message));
+  page.on('response',r=>{if(r.status()>=500)badResponses.push({url:r.url(),status:r.status()});});
+  await page.goto(`${base}/import`);
+  await capture('import-upload-desktop'); await audit('import-upload-desktop');
+  await capture('import-upload-mobile',390,844); await audit('import-upload-mobile');
+  await page.locator('input[type=file]').setInputFiles({name:'fictional.csv',mimeType:'text/csv',buffer:Buffer.from('organisation name,sector,city,contact name,email,role,phone\r\nBirch CSV Example,IT,Dubai,Alex CSV,alex.csv@example.com,Coordinator,001234\r\nbirch csv example,IT,Dubai,Sam CSV,sam.csv@example.org,Coordinator,00987\r\nIgnored duplicate,IT,Dubai,Alex CSV,ALEX.CSV@example.com,Coordinator,001234\r\n,,,,,,\r\nRejected,IT,Dubai,Missing email,,Coordinator,001234\r\n')});
+  await page.getByRole('button',{name:'Upload and map columns'}).click();
+  check('CSV upload reaches explicit mapping without JavaScript',await page.getByRole('heading',{name:'Map CSV columns',exact:true}).isVisible());
+  check('CSV mapping guesses known fields and leaves phone unmapped',await page.getByLabel('Organisation name column',{exact:true}).inputValue()==='0' && await page.locator('select').count()===6);
+  await capture('import-mapping-desktop'); await audit('import-mapping-desktop');
+  await capture('import-mapping-mobile',390,844); await audit('import-mapping-mobile');
+  await page.getByRole('button',{name:'Preview rows',exact:true}).click();
+  const importUrl=page.url();
+  check('Row preview explains creation, linking, duplicates, blank rows and rejection',await page.locator('tbody tr').count()===5 && (await page.locator('tbody').innerText()).includes('Link to existing organisation') && (await page.locator('tbody').innerText()).includes('Skip duplicate contact') && (await page.locator('tbody').innerText()).includes('Email is required'));
+  await capture('import-preview-desktop'); await audit('import-preview-desktop');
+  await capture('import-preview-mobile',390,844); await audit('import-preview-mobile');
+  const previewRegion=page.getByRole('region',{name:'CSV row preview',exact:true});
+  await previewRegion.focus();
+  await page.keyboard.press('ArrowRight');
+  // Native scrolling animates; script-based animation-frame polling is unavailable with JS disabled.
+  await page.waitForTimeout(250);
+  check('CSV row results have a visible scroll hint and keyboard access without JavaScript',await page.locator('#csv-preview-help').isVisible() && await previewRegion.evaluate(el=>el.scrollLeft>0));
+  await page.getByRole('button',{name:'Confirm import of ready rows'}).click();
+  await page.getByRole('heading',{name:'Import confirmed',exact:true}).waitFor();
+  check('Explicit confirmation imports ready rows without JavaScript',(await page.getByRole('status').innerText()).includes('Created 1 organisations and 2 contacts. Skipped 2 rows; rejected 1 rows.'));
+  await capture('import-result-desktop'); await audit('import-result-desktop');
+  await capture('import-result-mobile',390,844); await audit('import-result-mobile');
+  await page.goto(importUrl);
+  check('Confirmed preview is single-use and hides the confirm form',await page.getByRole('button',{name:'Confirm import of ready rows'}).count()===0);
+  await page.goto(`${base}/integrations/followdesk`);
+  await page.getByRole('button',{name:'Create pairing code',exact:true}).click();
+  check('Pairing remains usable without JavaScript',await page.locator('#pair-code').isVisible() && !await page.getByRole('button',{name:'Copy code',exact:true}).isVisible());
+  await noJs.close(); page=mainPage; javaScriptDisabled=false;
+  check('Page metadata is present',await page.locator('meta[property="og:title"]').count()===1 && await page.locator('meta[property="og:description"]').count()===1 && await page.locator('meta[name="theme-color"]').count()===1);
   assert.deepEqual(errors,[],'Browser console errors');
   assert.deepEqual(badResponses,[],'Server errors');
   check('No browser exceptions or HTTP 5xx responses');
   const result = {verifiedAt:new Date().toISOString(),baseUrl:base,browser:browser.version(),checks,checkCount:checks.length,accessibilityScans:scans,automatedAccessibilityViolations:0,errors,badResponses,scope:'Local Chromium + SQLite; no hosted or PostgreSQL runtime claims'};
-  await fs.writeFile(path.join(root,'browser-verification.json'),JSON.stringify(result,null,2));
+  await fs.writeFile(path.join(root,'improvement-browser-verification-2026-10-27.json'),JSON.stringify(result,null,2));
   console.log(JSON.stringify(result,null,2));
 } catch(error) {
-  await page.screenshot({path:path.join(root,'browser-failure.png'),fullPage:true}).catch(()=>{});
+  // Pairing codes are deliberately excluded from failure screenshots.
+  if (!await page.locator('#pair-code').count()) await page.screenshot({path:path.join(root,'improvement-browser-failure-2026-10-27.png'),fullPage:true}).catch(()=>{});
   throw error;
 } finally { await browser.close(); }
